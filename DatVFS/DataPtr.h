@@ -74,8 +74,20 @@ public:
 		(*counter)--;
 
 		// Check if we've hit the minimum amount of owners
-		if (counter->get() < minOwners) {
-			if (*loaded) {
+		if (counter->get() == 0)
+		{
+			// Delete everything
+			if (dataLoaded())
+			{
+				delete[] * pointer;
+			}
+			delete *pointer;
+			delete counter;
+			delete loaded;
+		}
+		else if (counter->get() < minOwners)
+		{
+			if (dataLoaded()) {
 
 				// Delete the data
 				delete[] * pointer;
@@ -83,19 +95,10 @@ public:
 				*loaded = false;
 			}
 		}
-		else if (counter->get() == 0) {
-			// Delete everything
-			if (*loaded) {
-				delete[] * pointer;
-			}
-			delete *pointer;
-			delete counter;
-			delete loaded;
-		}
 	}
 
 	char* operator->() {
-		if (*loaded) return *pointer;
+		if (dataLoaded()) return *pointer;
 		else return nullptr;
 	}
 
