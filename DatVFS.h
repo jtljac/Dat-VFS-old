@@ -127,7 +127,7 @@ public:
 	 * @param Overwrite Whether to Overwrite the destination file if it already exists
 	 * @param Regex The Regex string each filename must match to be added to the filesystem
 	 */
-	void addFolder(const std::string& Folder, bool Overwrite = false, std::string Regex = "(.*)") {
+	void addFolder(const std::string& Folder, bool Overwrite = false, bool Recursive = true, std::string Regex = "(.*)") {
 		std::filesystem::directory_iterator directories(Folder);
 
 		// Iterate through all files and folders in this directory
@@ -135,11 +135,11 @@ public:
 			Path thePath(entry.path().string());
 
 			// If it's a directory, enter and add all the sub files
-			if (entry.is_directory()) {
+			if (entry.is_directory() && Recursive) {
 				if (!folders.count(thePath.lastItem())) {
 					folders.emplace(thePath.lastItem(), new DatVFS());
 				}
-				folders[thePath.lastItem()]->addFolder(entry.path().string(), Overwrite, Regex);
+				folders[thePath.lastItem()]->addFolder(entry.path().string(), Overwrite, Recursive, Regex);
 			}
 			else {
 				addFile(entry.path().string(), thePath.lastItem(), Overwrite, Regex);
@@ -154,16 +154,16 @@ public:
 	 * @param Overwrite Whether to Overwrite the destination file if it already exists
 	 * @param Regex The Regex string each filename must match to be added to the filesystem
 	 */
-	void addFolder(const std::string& Folder, Path MountPoint, bool Overwrite = false, std::string Regex = "(.*)") {
-		// Check to see if we're in the write directory of the VFS, otherwise pass to the next level
+	void addFolder(const std::string& Folder, Path MountPoint, bool Overwrite = true, bool Recursive = false, std::string Regex = "(.*)") {
+		// Check to see if we're in the right directory of the VFS, otherwise pass to the next level
 		if (MountPoint.totalDepth() > 0) {
 			if (!folders.count(MountPoint[0])) {
 				folders.emplace(MountPoint[0], new DatVFS());
 			}
-			folders[MountPoint[0]]->addFolder(Folder, MountPoint.getSubPath(1), Overwrite, Regex);
+			folders[MountPoint[0]]->addFolder(Folder, MountPoint.getSubPath(1), Overwrite, Recursive, Regex);
 		}
 		else {
-			addFolder(Folder, Overwrite, Regex);
+			addFolder(Folder, Overwrite, Recursive, Regex);
 		}
 	}
 
