@@ -1,34 +1,39 @@
 #pragma once
 #include <vector>
 #include <iostream>
+#include <filesystem>
 #include <fstream>
 #include "DataPtr.h"
 
 struct Path {
-	// TODO: Optimise
 	std::vector<std::string> path;
 
 	Path() {}
 
-	Path(std::string Path) {
-		int index;
-		// While theres still some string left
-		while (Path.size()) {
-			// Find the first slash
-			index = Path.find_first_of("\\/");
-			// If the slash is at the begining of the string, discard it
-			if (index == 0) Path = Path.substr(index + 1);
+	Path(std::filesystem::path Path) {
 
-			else if (index != std::string::npos) {
-				path.push_back(Path.substr(0, index));
-				Path = Path.substr(index + 1);
-			}
-
-			else {
-				path.push_back(Path);
-				Path = "";
-			}
+		for (const std::filesystem::path& part : Path) {
+			if (part.string() != "/" && part.string() != "\\") path.push_back(part.string());
 		}
+
+		//int index;
+		//// while theres still some string left
+		//while (path.size()) {
+		//	// find the first slash
+		//	index = path.find_first_of("\\/");
+		//	// if the slash is at the begining of the string, discard it
+		//	if (index == 0) path = path.substr(index + 1);
+
+		//	else if (index != std::string::npos) {
+		//		path.push_back(path.substr(0, index));
+		//		path = path.substr(index + 1);
+		//	}
+
+		//	else {
+		//		path.push_back(path);
+		//		path = "";
+		//	}
+		//}
 	}
 
 	Path(std::vector<std::string> Path) {
@@ -113,7 +118,7 @@ class DVFSFile {
 protected:
 	DataPtr data = DataPtr(nullptr, 1);
 	uint32_t dataSize;
-	std::string fileLocation;
+	std::filesystem::path fileLocation;
 
 	/**
 	 * Loads the data into the memory if it isn't already
@@ -153,7 +158,7 @@ protected:
 
 
 public:
-	DVFSFile(std::string Path) {
+	DVFSFile(std::filesystem::path Path) {
 		fileLocation = Path;
 	}
 
@@ -169,7 +174,7 @@ public:
 		return data;
 	}
 
-	std::string getDest() {
+	std::filesystem::path getDest() {
 		return fileLocation;
 	}
 };

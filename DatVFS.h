@@ -14,43 +14,29 @@ class DatVFS {
 	/**
 	 * Adds the given file to the VFS
 	 * @param FilePath The path to the file
-	 * @param FileName The name that the file will have in the VFS
+	 * @param DestFileName The name that the file will have in the VFS
 	 * @param Overwrite Whether to Overwrite the destination file if it already exists
 	 * @param Regex The Regex string the filename must match to be added to the filesystem
 	 */
-	void addFile(std::string FilePath, std::string FileName, bool Overwrite = false, std::string Regex = "(.*)") {
+	void addFile(const std::filesystem::path& FilePath, const std::string DestFileName, bool Overwrite = false, const std::string Regex = "(.*)") {
 		// Find the file name
-		std::string ActualFileName = FilePath.substr(FilePath.find_last_of("\\/") + 1);
+		std::string ActualFileName = FilePath.filename().string();
 
 		// Check it matches the regex
 		if (std::regex_match(ActualFileName.c_str(), std::regex(Regex))) {
-			// Check the file doesn't already exist
-			if (files.count(FileName)) {
-				std::cout << "File already exists";
-				if (!Overwrite) {
-					std::cout << std::endl;
-					return;
-				}
-				else {
-					std::cout << ", overwriting" << std::endl;
-					delete files[FileName];
-				}
-			}
-
-			// Add the file
-			files[FileName] = new DVFSFile(FilePath);
+			addFile(DestFileName, new DVFSFile(FilePath), Overwrite);
 		}
 	}
 
 	/**
 	 * Adds the given file to the VFS
-	 * @param FileName The name of the file in the VFS
+	 * @param DestFileName The name of the file in the VFS
 	 * @param File A Pointer to a setup DVFSFile
 	 * @param Overwrite Whether to Overwrite the destination file if it already exists
 	 */
-	void addFile(std::string FileName, DVFSFile* File, bool Overwrite = false) {
+	void addFile(const std::string DestFileName, DVFSFile* File, bool Overwrite = false) {
 		// Check the file doesn't already exist
-		if (files.count(FileName)) {
+		if (files.count(DestFileName)) {
 			std::cout << "File already exists";
 			if (!Overwrite) {
 				std::cout << std::endl;
@@ -58,10 +44,10 @@ class DatVFS {
 			}
 			else {
 				std::cout << ", overwriting" << std::endl;
-				delete files[FileName];
+				delete files[DestFileName];
 			}
 		}
-		files[FileName] = File;
+		files[DestFileName] = File;
 	}
 
 public:
@@ -89,7 +75,7 @@ public:
 	 * @param Overwrite Whether to Overwrite the destination file if it already exists
 	 * @param Regex The Regex string the filename must match to be added to the filesystem
 	 */
-	void addFile(const std::string& FilePath, Path VirtualPath, bool Overwrite = false, std::string Regex = "(.*)") {
+	void addFile(const std::filesystem::path& FilePath, Path VirtualPath, bool Overwrite = false, const std::string Regex = "(.*)") {
 		// Check to see if we're in the write directory of the VFS, otherwise pass to the next level
 		if (VirtualPath.totalDepth() > 0) {
 			if (!folders.count(VirtualPath[0])) {
@@ -127,22 +113,22 @@ public:
 	 * @param Overwrite Whether to Overwrite the destination file if it already exists
 	 * @param Regex The Regex string each filename must match to be added to the filesystem
 	 */
-	void addFolder(const std::string& Folder, bool Overwrite = false, bool Recursive = true, std::string Regex = "(.*)") {
+	void addFolder(const std::filesystem::path& Folder, bool Overwrite = false, bool Recursive = true, const std::string Regex = "(.*)") {
 		std::filesystem::directory_iterator directories(Folder);
 
 		// Iterate through all files and folders in this directory
 		for (const std::filesystem::directory_entry& entry : directories) {
-			Path thePath(entry.path().string());
+			Path thePath(entry.path());
 
 			// If it's a directory, enter and add all the sub files
 			if (entry.is_directory() && Recursive) {
 				if (!folders.count(thePath.lastItem())) {
 					folders.emplace(thePath.lastItem(), new DatVFS());
 				}
-				folders[thePath.lastItem()]->addFolder(entry.path().string(), Overwrite, Recursive, Regex);
+				folders[thePath.lastItem()]->addFolder(entry.path(), Overwrite, Recursive, Regex);
 			}
 			else {
-				addFile(entry.path().string(), thePath.lastItem(), Overwrite, Regex);
+				addFile(entry.path(), thePath.lastItem(), Overwrite, Regex);
 			}
 		}
 	}
@@ -154,7 +140,7 @@ public:
 	 * @param Overwrite Whether to Overwrite the destination file if it already exists
 	 * @param Regex The Regex string each filename must match to be added to the filesystem
 	 */
-	void addFolder(const std::string& Folder, Path MountPoint, bool Overwrite = true, bool Recursive = false, std::string Regex = "(.*)") {
+	void addFolder(const std::filesystem::path& Folder, Path MountPoint, bool Overwrite = true, bool Recursive = false, const std::string Regex = "(.*)") {
 		// Check to see if we're in the right directory of the VFS, otherwise pass to the next level
 		if (MountPoint.totalDepth() > 0) {
 			if (!folders.count(MountPoint[0])) {
