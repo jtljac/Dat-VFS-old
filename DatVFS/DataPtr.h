@@ -79,11 +79,16 @@ public:
 			// Delete everything
 			if (dataLoaded())
 			{
-				delete[] * pointer;
+				delete[] *pointer;
 			}
-			delete *pointer;
+
+
+			delete pointer;
+
 			delete counter;
+
 			delete loaded;
+
 		}
 		else if (counter->get() < minOwners)
 		{
@@ -112,7 +117,7 @@ public:
 
 	/**
 	 * Sets the data pointer to point at the new data
-	 * @param
+	 * @param Data The data to
 	 */
 	void setData(char* Data) {
 		*pointer = Data;
@@ -131,8 +136,8 @@ public:
 	 */
 	void cleanup() {
 		delete[] *pointer;
-		delete pointer;
-		*loaded = false;
+		*pointer = nullptr;
+		setLoaded(false);
 	}
 
 	/**
