@@ -41,6 +41,7 @@ public:
 class DataPtr {
 	// Pointer to the pointer that represents the data (needed so we can assign the data elsewhere)
 	char** pointer = nullptr;
+	unsigned int* dataSize = nullptr;
 	Counter* counter = nullptr;
 
 	// Pointer to the bool that represents whether the data is loaded (Needed so we can assign elsewhere)
@@ -55,6 +56,8 @@ public:
 		pointer = new char*;
 		*pointer = Pointer;
 
+		dataSize = new unsigned int;
+
 		counter = new Counter();
 		(*counter)++;
 		loaded = new bool(false);
@@ -64,6 +67,7 @@ public:
 	// Copy Constructor
 	DataPtr(DataPtr& data) {
 		pointer = data.pointer;
+		dataSize = data.dataSize;
 		counter = data.counter;
 		loaded = data.loaded;
 		(*counter)++;
@@ -85,6 +89,8 @@ public:
 
 			delete pointer;
 
+			delete dataSize;
+
 			delete counter;
 
 			delete loaded;
@@ -97,6 +103,7 @@ public:
 				// Delete the data
 				delete[] * pointer;
 				*pointer = nullptr;
+				*dataSize = 0;
 				*loaded = false;
 			}
 		}
@@ -115,12 +122,17 @@ public:
 		return *pointer;
 	}
 
+	int size() {
+		return *dataSize;
+	}
+
 	/**
 	 * Sets the data pointer to point at the new data
 	 * @param Data The data to
 	 */
-	void setData(char* Data) {
+	void setData(char* Data, unsigned int DataSize) {
 		*pointer = Data;
+		*dataSize = DataSize;
 	}
 
 	/**

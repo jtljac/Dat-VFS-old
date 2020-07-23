@@ -144,7 +144,7 @@ protected:
 		theFile.seekg(0);
 
 		// Create a big enough buffer
-		data.setData(new char[dataSize]);
+		data.setData(new char[dataSize], dataSize);
 
 		// Read the data in
 		theFile.read(data.get(), dataSize);
