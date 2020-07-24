@@ -50,6 +50,25 @@ class DatVFS {
 		files[DestFileName] = File;
 	}
 
+	/**
+	 * Gets the file at the given location
+	 * @param thePath The path to the file
+	 * @return The file at the given location
+	 */
+	DVFSFile* getFile(Path thePath) {
+		if (thePath.totalDepth() > 0) {
+			if (folders.count(thePath[0])) {
+				return folders[thePath[0]]->getFile(thePath.getSubPath(1));
+			}
+		}
+		else {
+			if (files.count(thePath[0])) {
+				return files[thePath[0]];
+			}
+		}
+		return nullptr;
+	}
+
 public:
 	~DatVFS() {
 		// Clear all the sub folders
@@ -187,6 +206,17 @@ public:
 	}
 
 	/**
+	 * Gets the file at the given location
+	 * @param thePath The path to the file
+	 * @return The file at the given location
+	 */
+	DVFSFile* getFile(std::string thePath) {
+		DVFSFile* file = getFile(Path(thePath));
+		if (file == nullptr) throw MissingFileException(thePath);
+		return file;
+	}
+
+	/**
 	 * Counts all the files inside and below this directory in the VFS
 	 * @return The amount of files inside and below this directory in the VFS
 	 */
@@ -197,6 +227,8 @@ public:
 		}
 		return count;
 	}
+
+
 	
 	/**
 	 * Removes all empty directories below this directory in the VFS

@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include "DataPtr.h"
+#include "MissingFileException.h"
 
 struct Path {
 	std::vector<std::string> path;
@@ -132,19 +133,18 @@ protected:
 		}
 
 		// Get the file and check we successfully got it
-		std::ifstream theFile(fileLocation, std::ios::in | std::ios::binary);
+		std::ifstream theFile(fileLocation, std::ios::in | std::ios::binary | std::ios::ate);
 		if (!theFile) {
 			std::cout << "Unable to load file" << std::endl;
 			return false;
 		}
 
-		// Find the size of the file, calculate the size, then return to the beginning
-		theFile.seekg(0, std::ios::end);
+		// Calculate the size, then return to the beginning
 		dataSize = theFile.tellg();
 		theFile.seekg(0);
 
 		// Create a big enough buffer
-		data.setData(new char[dataSize]);
+		data.setData(new char[dataSize], dataSize);
 
 		// Read the data in
 		theFile.read(data.get(), dataSize);
