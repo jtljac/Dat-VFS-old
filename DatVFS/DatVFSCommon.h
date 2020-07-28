@@ -3,7 +3,6 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include "DataPtr.h"
 #include "MissingFileException.h"
 
 struct Path {
@@ -117,60 +116,32 @@ struct Path {
 
 class DVFSFile {
 protected:
-	DataPtr data = DataPtr(nullptr, 1);
-	uint32_t dataSize;
 	std::filesystem::path fileLocation;
-
-	/**
-	 * Loads the data into the memory if it isn't already
-	 * @return Whether the file was loaded into memory or not
-	 */
-	bool loadFile() {
-		// Ensure its not already loaded
-		if (data.dataLoaded()) {
-			std::cout << "Tried to load file while already loaded, ignoring" << std::endl;
-			return false;
-		}
-
-		// Get the file and check we successfully got it
-		std::ifstream theFile(fileLocation, std::ios::in | std::ios::binary | std::ios::ate);
-		if (!theFile) {
-			std::cout << "Unable to load file" << std::endl;
-			return false;
-		}
-
-		// Calculate the size, then return to the beginning
-		dataSize = theFile.tellg();
-		theFile.seekg(0);
-
-		// Create a big enough buffer
-		data.setData(new char[dataSize], dataSize);
-
-		// Read the data in
-		theFile.read(data.get(), dataSize);
-
-		data.setLoaded(true);
-
-		theFile.close();
-		return true;
-	}
-
-
 
 public:
 	DVFSFile(std::filesystem::path Path) {
 		fileLocation = Path;
 	}
 
-	~DVFSFile() {
-		data.cleanup();
-	}
-
-	DataPtr getFile() {
-		if (!data.dataLoaded()) {
-			loadFile();
+	virtual std::vector<char> getFile() {
+		// Get the file and check we successfully got it
+		std::ifstream theFile(fileLocation, std::ios::in | std::ios::binary | std::ios::ate);
+		if (!theFile) {
+			std::cout << "Unable to load file" << std::endl;
+			return std::vector<char>();
 		}
 
+		// Calculate the size, then return to the beginning
+		size_t dataSize = theFile.tellg();
+		theFile.seekg(0);
+
+		// Create a vector with a big enough buffer
+		std::vector<char> data(dataSize);
+
+		// Read the data in
+		theFile.read(data.data(), dataSize);
+
+		theFile.close();
 		return data;
 	}
 
