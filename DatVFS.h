@@ -55,7 +55,7 @@ class DatVFS {
 	 * @param thePath The path to the file
 	 * @return The file at the given location
 	 */
-	DVFSFile* getFile(Path thePath) {
+	DVFSFile* getFileInternal(Path thePath) {
 		if (thePath.totalDepth() > 0) {
 			if (folders.count(thePath[0])) {
 				return folders[thePath[0]]->getFile(thePath.getSubPath(1));
@@ -66,7 +66,37 @@ class DatVFS {
 				return files[thePath[0]];
 			}
 		}
+
 		return nullptr;
+	}
+
+	DatVFS* getFolderInternal(Path thePath) {
+		if (thePath.totalDepth() > 0) {
+			if (folders.count(thePath[0])) {
+				return folders[thePath[0]]->getFolderInternal(thePath.getSubPath(1));
+			}
+		}
+		else {
+			if (folders.count(thePath[0])) {
+				return folders[thePath[0]];
+			}
+		}
+
+		return nullptr;
+	}
+
+	void getAllFilesThatMatchRegexInternal(const std::string Regex, std::vector<DVFSFile*>& Files) {
+		// Count files that match
+		for (std::unordered_map<std::string, DVFSFile*>::iterator it = files.begin(); it != files.end();) {
+			if (std::regex_match(it->first, std::regex(Regex))) {
+				Files.push_back(it->second);
+			}
+		}
+
+		// add count of each subdirectories
+		for (std::unordered_map<std::string, DatVFS*>::iterator it = folders.begin(); it != folders.end();) {
+			it->second->getAllFilesThatMatchRegexInternal(Regex, Files);
+		}
 	}
 
 public:
@@ -206,17 +236,6 @@ public:
 	}
 
 	/**
-	 * Gets the file at the given location
-	 * @param thePath The path to the file
-	 * @return The file at the given location
-	 */
-	DVFSFile* getFile(std::string thePath) {
-		DVFSFile* file = getFile(Path(thePath));
-		if (file == nullptr) throw MissingFileException(thePath);
-		return file;
-	}
-
-	/**
 	 * Counts all the files inside and below this directory in the VFS
 	 * @return The amount of files inside and below this directory in the VFS
 	 */
@@ -228,7 +247,64 @@ public:
 		return count;
 	}
 
+	/**
+	 * Counts all the files inside and below this directory in the VFS that match the given regex
+	 * @param Regex The regex string the title must match
+	 * @return The amount of files inside and below this directory in the VFS
+	 */
+	int countFilesMatchingRegex(const std::string Regex) {
+		int count = 0;
 
+		// Count files that match
+		for (std::unordered_map<std::string, DVFSFile*>::iterator it = files.begin(); it != files.end();) {
+			if (std::regex_match(it->first, std::regex(Regex))) {
+				++count;
+			}
+		}
+
+		// add count of each subdirectories
+		for (std::unordered_map<std::string, DatVFS*>::iterator it = folders.begin(); it != folders.end();) {
+			count += it->second->countFilesMatchingRegex(Regex);
+		}
+
+		return count;
+	}
+
+	/**
+	 * Gets the file at the given location
+	 * @param thePath The path to the file
+	 * @return The file at the given location
+	 */
+	DVFSFile* getFile(Path thePath) {
+		DVFSFile* file = getFileInternal(thePath);
+		if (file == nullptr) throw MissingFileException((std::string) thePath);
+		return file;
+	}
+
+	/**
+	 * Gets the folder at the given location
+	 * @param thePath The path of the folder
+	 * @return The folder at the given location
+	 */
+	DatVFS* getFolder(Path thePath) {
+		DatVFS* folder = getFolderInternal(thePath);
+		if (folder == nullptr) throw MissingDirectoryException((std::string) thePath);
+		return folder;
+	}
+
+	/**
+	 * Gets a vector of all the files that match the given regex string inside this directory
+	 * @param Regex The regex string to match the file title to
+	 * @return A vector containing all the files that match the given regex string
+	 */
+	std::vector<DVFSFile*> getAllFilesThatMatchRegex(const std::string Regex) {
+		// TODO: maybe use a linked list and only iterate through the vfs once
+		int count = countFilesMatchingRegex(Regex);
+		std::vector<DVFSFile*> Files(count);
+
+		getAllFilesThatMatchRegexInternal(Regex, Files);
+		return Files;
+	}
 	
 	/**
 	 * Removes all empty directories below this directory in the VFS

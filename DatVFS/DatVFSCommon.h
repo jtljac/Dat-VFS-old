@@ -4,15 +4,20 @@
 #include <filesystem>
 #include <fstream>
 #include "MissingFileException.h"
+#include "MissingDirectoryException.h"
 
 struct Path {
 	std::vector<std::string> path;
 
 	Path() {}
 
-	Path(std::filesystem::path Path) {
+	Path(std::string thePath) {
+		Path(std::filesystem::path(thePath));
+	}
 
-		for (const std::filesystem::path& part : Path) {
+	Path(std::filesystem::path thePath) {
+
+		for (const std::filesystem::path& part : thePath) {
 			if (part.string() != "/" && part.string() != "\\") path.push_back(part.string());
 		}
 
@@ -36,8 +41,8 @@ struct Path {
 		//}
 	}
 
-	Path(std::vector<std::string> Path) {
-		path = Path;
+	Path(std::vector<std::string> thePath) {
+		path = thePath;
 	}
 
 	/**
