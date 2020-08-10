@@ -58,7 +58,7 @@ class DatVFS {
 	DVFSFile* getFileInternal(Path thePath) {
 		if (thePath.totalDepth() > 0) {
 			if (folders.count(thePath[0])) {
-				return folders[thePath[0]]->getFile(thePath.getSubPath(1));
+				return folders[thePath[0]]->getFileInternal(thePath.getSubPath(1));
 			}
 		}
 		else {

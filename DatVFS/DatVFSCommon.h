@@ -11,9 +11,7 @@ struct Path {
 
 	Path() {}
 
-	Path(std::string thePath) {
-		Path(std::filesystem::path(thePath));
-	}
+	Path(std::string thePath) : Path(std::filesystem::path(thePath)) {}
 
 	Path(std::filesystem::path thePath) {
 
