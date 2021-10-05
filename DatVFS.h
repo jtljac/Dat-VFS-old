@@ -1,9 +1,9 @@
 ﻿#pragma once
-#include <stdint.h>
+#include <cstdint>
 #include <iostream>
 #include <filesystem>
 #include <unordered_map>
-#include <assert.h>
+#include <cassert>
 #include <regex>
 #include "DatVFS/DatVFSCommon.h"
 
