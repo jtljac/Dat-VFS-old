@@ -1,162 +1,176 @@
 #pragma once
+#include <utility>
 #include <vector>
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include "MissingFileException.h"
-#include "MissingDirectoryException.h"
 
-struct Path {
-	std::vector<std::string> path;
+struct DVFSPath {
+    const std::string path;
 
-	Path() {}
-
-	Path(std::string thePath) : Path(std::filesystem::path(thePath)) {}
-
-	Path(std::filesystem::path thePath) {
-
-		for (const std::filesystem::path& part : thePath) {
-			if (part.string() != "/" && part.string() != "\\") path.push_back(part.string());
-		}
-
-		//int index;
-		//// while theres still some string left
-		//while (path.size()) {
-		//	// find the first slash
-		//	index = path.find_first_of("\\/");
-		//	// if the slash is at the begining of the string, discard it
-		//	if (index == 0) path = path.substr(index + 1);
-
-		//	else if (index != std::string::npos) {
-		//		path.push_back(path.substr(0, index));
-		//		path = path.substr(index + 1);
-		//	}
-
-		//	else {
-		//		path.push_back(path);
-		//		path = "";
-		//	}
-		//}
-	}
-
-	Path(std::vector<std::string> thePath) {
-		path = thePath;
-	}
-
-	/**
-	 * Gets the folder name at the given index
-	 * @param Item The index of the path to get
-	 * @return The folder name at the given index
-	 */
-	std::string operator[](unsigned int Item) {
-		if (Item >= path.size()) {
-			throw std::out_of_range("Index out of range");
-		}
-
-		return path[Item];
-	}
-
-	/**
-	 * Gets the sub path from starting from the given start and ending at the given end
-	 * @param Start The index to start the subpath with
-	 * @param End The index to end the subpath with
-	 * @return the resulting subpath
-	 */
-	Path getSubPath(unsigned int Start, unsigned int End) {
-		if (End >= path.size() || Start >= path.size()) throw std::out_of_range("Index out of range");
-		return Path(std::vector<std::string>(path.begin() + Start, path.begin() + End));
-	}
-
-	/**
-	 * Gets the sub path from starting from the given start to the end of the path
-	 * @param start The index to start the subpath with
-	 * @return the resulting subpath
-	 */
-	Path getSubPath(unsigned int start) {
-		if (start >= path.size()) throw std::out_of_range("Index out of range");
-		return Path(std::vector<std::string>(path.begin() + start, path.end()));
-	}
-
-	friend Path operator+(Path& thisPath, Path& otherPath) {
-		std::vector<std::string> newPath(thisPath.path);
-		newPath.reserve(thisPath.path.size() + otherPath.path.size());
-		newPath.insert(newPath.end(), otherPath.path.begin(), otherPath.path.end());
-		return Path(newPath);
-	}
-
-	/**
-	 * Adds the given path onto the end
-	 * @param OtherPath
-	 */
-	Path& append(Path& OtherPath) {
-		path.reserve(path.size() + OtherPath.path.size());
-		path.insert(path.end(), OtherPath.path.begin(), OtherPath.path.end());
-		return *this;
-	}
-
-	explicit operator std::string() {
-		std::string theString = "";
-		for (std::string item : path) {
-			theString.append("/" + item);
-		}
-		return theString;
-	}
-
-	/**
-	 * Gets how many folders deep the path goes
-	 */
-	int totalDepth() {
-		return path.size() - 1;
-	}
-
-	/**
-	 * Gets the Last item in the path
-	 */
-	std::string lastItem() {
-		return path[totalDepth()];
-	}
+    DVFSPath(std::string  destPath) : path(std::move(destPath)) {}; // NOLINT(google-explicit-constructor)
 };
 
-class DVFSFile {
+/**
+ * An interface for classes that can be added to the VFS
+ * Also contains logic for handling multiple entries in the VFS of the same IDVFSFile
+ */
+class IDVFSFile {
+    uint8_t references = 0;
 protected:
-	std::filesystem::path fileLocation;
-
+    size_t fileSize = 0;
 public:
-	DVFSFile(std::filesystem::path Path) {
-		fileLocation = Path;
-	}
+    [[nodiscard]] size_t getFileSize() const {
+        return fileSize;
+    }
 
-	virtual std::vector<char> getFile() {
-		// Get the file and check we successfully got it
-		std::ifstream theFile(fileLocation, std::ios::in | std::ios::binary | std::ios::ate);
-		if (!theFile) {
-			std::cout << "Unable to load file" << std::endl;
-			return std::vector<char>();
-		}
+    /**
+     * Get a vector containing all the bytes of the DVFS File
+     * @return A vector containing all the bytes of the DVFS File
+     */
+    [[maybe_unused]] [[nodiscard]] std::vector<char> getContent() const{
+        std::vector<char> buffer(fileSize);
+        if(getContent(buffer.data())) return buffer;
+        else return {};
+    }
 
-		// Calculate the size, then return to the beginning
-		size_t dataSize = theFile.tellg();
-		theFile.seekg(0);
+    /**
+     * Gets a count of the references to this DVFSFile in the VFS
+     * @return The number of references to this DVFSFile in the VFS
+     */
+    [[maybe_unused]] [[nodiscard]] uint8_t getReferenceCount() const {
+        return references;
+    }
 
-		// Create a vector with a big enough buffer
-		std::vector<char> data(dataSize);
+    /**
+     * Increments the number of references
+     * @return the new number of references
+     */
+    uint8_t& operator++() {
+        return ++references;
+    }
 
-		// Read the data in
-		theFile.read(data.data(), dataSize);
+    /**
+     * Decrements the number of references
+     * @return the new number of references
+     */
+    uint8_t& operator--() {
+        return --references;
+    }
 
-		theFile.close();
-		return data;
-	}
-
-	std::filesystem::path getDest() {
-		return fileLocation;
-	}
+    // Virtual Functions
+    /**
+     * Check the file the DVFS File points to is valid
+     * @return If the file the DVFS File points to is valid
+     */
+    [[nodiscard]] virtual bool isValidFile() const = 0;
+    /**
+     * Loads the content of the file into the provided buffer pointer
+     * Warning, does not check the buffer is the correct size, you can get the size with <<DVFSFile>><getSize>
+     * @param buffer A pointer to the buffer to deposit the file data into
+     */
+    virtual bool getContent(char* buffer) const = 0;
 };
 
-class VFSArchive {
+/**
+ * An entry for the DVFS that represents loose files on the disk
+ */
+struct DVFSLooseFile : IDVFSFile {
+    const std::filesystem::path path;
+    explicit DVFSLooseFile(std::filesystem::path filePath) : path(std::move(filePath)) {
+        if (!is_directory(path) && std::filesystem::exists(path)) {
+            fileSize = (size_t) std::filesystem::file_size(filePath);
+        }
+    }
+
+    [[nodiscard]] bool isValidFile() const override {
+        return !is_directory(path) && std::filesystem::exists(path);
+    }
+
+    bool getContent(char* buffer) const override {
+        if (!isValidFile()) return false;
+
+        std::ifstream fileStream(path, std::ios::in | std::ios::binary);
+
+        return fileStream.read(buffer, fileSize).good();
+    }
+};
+
+
+/**
+ * An interface containing methods for adding files to the DVFS
+ */
+struct IDVFSInserter {
+    using pair = std::pair<std::string, std::unique_ptr<IDVFSFile>>;
+
+    const std::string mountPoint;
+
+    /**
+     * @param mountPoint The location in DVFS To mount the files onto
+     */
+    explicit IDVFSInserter(std::string mountPoint = "") : mountPoint(std::move(mountPoint)) {}
+
+    /**
+     * Gets a vector of all the files paired with their relative path in the DVFS
+     * The pair is laid out as such:
+     * first: string relative path
+     * second: DVFSFile pointer
+     * @return The files paired with their relative path in the DVFS
+     */
+    [[nodiscard]] virtual std::vector<pair> getAllFiles() const = 0;
+};
+
+/**
+ * A Inserter for the DVS for adding loose files from the disk
+ */
+class DVFSLooseFilesInserter : public IDVFSInserter {
+protected:
+    const std::filesystem::path looseFilesPath;
+    const bool recursive;
+
+    explicit DVFSLooseFilesInserter(std::filesystem::path directory, const std::string& mountPoint = "", bool recursive = true) : looseFilesPath(std::move(directory)), IDVFSInserter(mountPoint), recursive(recursive) {}
+
+    virtual void addFile(std::vector<pair>& pairList, const std::filesystem::path &path) const {
+        std::string dest = relative(path, looseFilesPath).string();
+        pairList.emplace_back(pair(dest, std::unique_ptr<IDVFSFile>(new DVFSLooseFile(path))));
+    }
+
+    void addFiles(std::vector<pair>& pairList, const std::filesystem::path& directory) const {
+        std::filesystem::directory_iterator directories(directory);
+
+        // Iterate through all files and folders in this directory
+        for (const auto& entry : directories) {
+
+            // If it's a directory, enter and add all the sub files
+            if (entry.is_directory() && recursive) {
+                addFiles(pairList, entry.path());
+            }
+            else {
+                addFile(pairList, entry.path());
+            }
+        }
+    }
+
+    [[nodiscard]] std::vector<pair> getAllFiles() const override {
+        std::vector<pair> pairList;
+
+        addFiles(pairList, looseFilesPath);
+
+        return pairList;
+    }
+};
+
+/**
+ * An inserter for the DVFS that adds files from the disk
+ * Also allows a regex string to be passed to allow for name filtering
+ */
+class DVFSLooseFilesInserterFiltered : public DVFSLooseFilesInserter {
+    std::string regexString;
 public:
-	/**
-	 * Gets a vector containing all files in the archive as a DVFSFile entry, and its path
-	 */
-	virtual std::vector<std::pair<Path, DVFSFile*>> getFiles() = 0;
+    explicit DVFSLooseFilesInserterFiltered(std::filesystem::path directory, std::string regexString, const std::string& mountPoint = "", bool recursive = true) : regexString(std::move(regexString)), DVFSLooseFilesInserter(std::move(directory), mountPoint, recursive) {}
+
+    void addFile(std::vector<pair>& pairList, const std::filesystem::path& path) const override {
+        if (std::regex_match(path.filename().string(), std::regex(regexString)))
+            DVFSLooseFilesInserter::addFile(pairList, path);
+    }
 };
