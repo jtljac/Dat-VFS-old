@@ -5,11 +5,27 @@
 #include <filesystem>
 #include <fstream>
 
-struct DVFSPath {
-    const std::string path;
+inline std::vector<std::string> stringPathToVectorPath(const std::string& path) {
+    std::vector<std::string> pathList(std::count_if(path.begin(), path.end(), [&](const char& item){
+        return item == '/' || item == '\\';
+    }));
 
-    DVFSPath(std::string  destPath) : path(std::move(destPath)) {}; // NOLINT(google-explicit-constructor)
-};
+    size_t start = 0;
+    while (start <= 0) {
+        size_t nextPos = path.rfind("\\/", start);
+
+        if (nextPos > 0) {
+            size_t length = nextPos - start;
+            if (length != 0) {
+                pathList.emplace_back(path.substr(start, length));
+            }
+        }
+
+        start = --nextPos;
+    }
+
+    return pathList;
+}
 
 /**
  * An interface for classes that can be added to the VFS
@@ -20,6 +36,8 @@ class IDVFSFile {
 protected:
     size_t fileSize = 0;
 public:
+    virtual ~IDVFSFile() = 0;
+
     [[nodiscard]] size_t getFileSize() const {
         return fileSize;
     }
@@ -103,12 +121,12 @@ struct DVFSLooseFile : IDVFSFile {
 struct IDVFSInserter {
     using pair = std::pair<std::string, std::unique_ptr<IDVFSFile>>;
 
-    const std::string mountPoint;
+    const std::vector<std::string> mountPoint;
 
     /**
      * @param mountPoint The location in DVFS To mount the files onto
      */
-    explicit IDVFSInserter(std::string mountPoint = "") : mountPoint(std::move(mountPoint)) {}
+    explicit IDVFSInserter(const std::string& mountPoint = "") : mountPoint(stringPathToVectorPath(mountPoint)) {}
 
     /**
      * Gets a vector of all the files paired with their relative path in the DVFS
