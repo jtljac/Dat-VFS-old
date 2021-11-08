@@ -9,10 +9,24 @@
 #include "DatVFS/DatVFSCommon.h"
 
 class DatVFS {
-    std::unordered_map<std::string, DatVFS*> folders;
-    std::unordered_map<std::string, IDVFSFile*> files;
+    using FolderMap = std::unordered_map<std::string,DatVFS*>;
+    using FileMap = std::unordered_map<std::string,IDVFSFile*>;
+
+    FolderMap folders;
+    FileMap files;
 
 public:
+    DatVFS() {
+        folders["."] = this;
+        // Since we don't know who the parent is, we'll just have to point .. at itself aswell
+        folders[".."] = this;
+    }
+
+    explicit DatVFS(DatVFS* parent) {
+        folders["."] = this;
+        folders[".."] = parent;
+    }
+
     /**
      * Counts all the files inside and below this directory in the VFS
      * @return The amount of files inside and below this directory in the VFS
@@ -67,7 +81,14 @@ public:
         if (index == filePath.size() - 1) {
             return files[filePath[index]];
         } else if (index < filePath.size()) {
-            return folders[filePath[index]]->getFile(filePath, ++index);
+            FolderMap::iterator folderIt = folders.find(filePath[index]);
+            DatVFS* folder;
+            if (folderIt == folders.end()) {
+                return nullptr;
+            } else {
+                folder = folderIt->second;
+            }
+            return folder->getFile(filePath, index + 1);
         } else {
             return nullptr;
         }
@@ -94,7 +115,15 @@ public:
         if (index == folderPath.size() - 1) {
             return folders[folderPath[index]];
         } else if (index < folderPath.size()) {
-            return folders[folderPath[index]]->getFolder(folderPath, ++index);
+            FolderMap::iterator folderIt = folders.find(folderPath[index]);
+            DatVFS* folder;
+            if (folderIt == folders.end()) {
+                return nullptr;
+            } else {
+                folder = folderIt->second;
+            }
+
+            return folders[folderPath[index]]->getFolder(folderPath, index + 1);
         } else {
             return nullptr;
         }
@@ -113,13 +142,71 @@ public:
     }
 
     /**
+     * Creates a folder within the current directory
+     * @param folderName The name of the folder (cannot contain backslashes or forward slashes)
+     * @return The newly created folder
+     */
+    DatVFS* createSingleFolder(const std::string& folderName) {
+        if (folders.count(folderName) > 0 || std::count_if(folderName.begin(), folderName.end(), [&](const auto& item) {
+            return item == '\\' || item == '/';
+        }) > 0) {
+            return nullptr;
+        }
+
+        DatVFS* newFolder = new DatVFS(this);
+        folders.emplace(std::string(folderName), newFolder);
+        return newFolder;
+    }
+
+    /**
+     * Creates a folder at the given path
+     * @param folderPath The path of the folder being created
+     * @param recursive (Optional) If folders that don't exist leading up to the last folder should be created
+     * @param index (Optional) The index of the path to start from
+     * @return The newly created folder (nullptr if the creation failed)
+     */
+    DatVFS* createFolder(const std::vector<std::string>& folderPath, bool recursive = false, size_t index = 0) {
+        if (index == folderPath.size() - 1) {
+            createSingleFolder(folderPath[index]);
+        } else if (index < folderPath.size()) {
+            FolderMap::iterator folderIt = folders.find(folderPath[index]);
+            DatVFS* folder;
+            if (folderIt == folders.end()) {
+                if (recursive) {
+                    folder = createSingleFolder(folderPath[index]);
+                } else {
+                    return nullptr;
+                }
+            } else {
+                folder = folderIt->second;
+            }
+            return folder->createFolder(folderPath, index + 1);
+        } else {
+            return nullptr;
+        }
+    }
+
+    /**
+     * Creates a folder at the given path
+     * @param folderPath The path of the folder being created
+     * @param recursive If folders that don't exist leading up to the last folder should be created
+     * @return The newly created folder (nullptr if the creation failed)
+     */
+    DatVFS* createFolder(const std::string& folderPath, bool recursive = false) {
+        std::vector<std::string> folderPathList = stringPathToVectorPath(folderPath);
+
+        return createFolder(folderPathList, recursive, 0);
+    }
+
+    /**
      * Inserts the IDVFSFile into VFS
+     * If there is already a file there, then it will be overwritten
      * @param filePath The path to the file
      * @param dvfsFile The file to insert
      * @param pathIndex (Optional) The index of the path to start from
      * @return If the file was successfully inserted
      */
-    bool insertFile(const std::vector<std::string>& filePath, IDVFSFile* dvfsFile, size_t pathIndex = 0) {
+    bool insertFile(const std::vector<std::string>& filePath, IDVFSFile* dvfsFile, bool createFolders = true, size_t pathIndex = 0) {
         if (pathIndex == filePath.size() - 1) {
             if (files.count(filePath[pathIndex]) > 0) {
                 delete files[filePath[pathIndex]];
@@ -127,7 +214,18 @@ public:
             files[filePath[pathIndex]] = dvfsFile;
             return true;
         } else if (pathIndex < filePath.size()) {
-            return folders[filePath[pathIndex]]->getFile(filePath, ++pathIndex);
+            FolderMap::iterator folderIt = folders.find(filePath[pathIndex]);
+            DatVFS* folder;
+            if (folderIt == folders.end()) {
+                if (createFolders) {
+                    folder = createSingleFolder(filePath[pathIndex]);
+                } else {
+                    return false;
+                }
+            } else {
+                folder = folderIt->second;
+            }
+            return folder->insertFile(filePath, dvfsFile, createFolders, pathIndex + 1);
         } else {
             return false;
         }
@@ -139,10 +237,10 @@ public:
      * @param dvfsFile The file to insert
      * @return If the file was successfully inserted
      */
-    bool insertFile(const std::string& filePath, IDVFSFile* dvfsFile) {
+    bool insertFile(const std::string& filePath, IDVFSFile* dvfsFile, bool createFolders = true) {
         std::vector<std::string> filePathList = stringPathToVectorPath(filePath);
 
-        return insertFile(filePathList, dvfsFile, 0);
+        return insertFile(filePathList, dvfsFile, createFolders ,0);
     }
 
     /**
@@ -152,15 +250,15 @@ public:
      * @return If the file was successfully inserted
      */
     bool insertFiles(const IDVFSInserter& inserter, size_t mountIndex = 0) {
-        if (mountIndex < inserter.mountPoint.size() - 1) {
+        if (!inserter.mountPoint.empty() && mountIndex < inserter.mountPoint.size() - 1) {
             DatVFS* folder = folders[inserter.mountPoint[mountIndex]];
 
-            if (folder) return folder->insertFiles(inserter, ++mountIndex);
+            if (folder) return folder->insertFiles(inserter, mountIndex + 1);
             else return false;
         }
 
         for (const auto& item : inserter.getAllFiles()) {
-            insertFile(item.first, item.second.get());
+            insertFile(item.first, item.second.get(), true);
         }
     }
 
@@ -199,10 +297,16 @@ public:
      * @param Depth The depth of the file/folder (To add formatting)
      */
     void tree(const std::string& Prefix = "", int Depth = 0) {
+        // Always print . and .. first
+        std::cout << Prefix << (Depth != 0 ? "-" : "") << "." << "/" << std::endl;
+        std::cout << Prefix << (Depth != 0 ? "-" : "") << ".." << "/" << std::endl;
+
         // Print folders and their subdirectories & files
         for (auto& folder: folders) {
-            std::cout << Prefix << (Depth != 0 ? "-" : "") << folder.first << std::endl;
-            folder.second->tree(Prefix + " |", Depth + 1);
+            if (!(folder.first == "." || folder.first == "..")) {
+                std::cout << Prefix << (Depth != 0 ? "-" : "") << folder.first << "/" << std::endl;
+                folder.second->tree(Prefix + " |", Depth + 1);
+            }
         }
 
         // Print Files

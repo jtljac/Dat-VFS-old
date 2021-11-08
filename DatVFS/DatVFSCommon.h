@@ -5,23 +5,29 @@
 #include <filesystem>
 #include <fstream>
 
+/**
+ * Splits a string by forward or back slashes, ignoring the last one
+ * @param path The path to split
+ * @return A vector containing the individual components of the path
+ */
 inline std::vector<std::string> stringPathToVectorPath(const std::string& path) {
+    if (path.empty()) return {};
+
+    bool ignoreLast = path[path.size() - 1] == '\\' || path[path.size() - 1] == '/';
+
     std::vector<std::string> pathList(std::count_if(path.begin(), path.end(), [&](const char& item){
         return item == '/' || item == '\\';
-    }));
+    }) + (ignoreLast ? 0 : 1));
 
     size_t start = 0;
-    while (start <= 0) {
-        size_t nextPos = path.rfind("\\/", start);
+    for (int i = 0; i < pathList.size(); ++i) {
+        size_t nextPos = i == pathList.size() - 1 ? path.size() - (ignoreLast ? 1 : 0) : path.find_first_of("\\/", start);
 
-        if (nextPos > 0) {
-            size_t length = nextPos - start;
-            if (length != 0) {
-                pathList.emplace_back(path.substr(start, length));
-            }
-        }
+        size_t length = nextPos - start;
 
-        start = --nextPos;
+        pathList[i] = path.substr(start, length);
+
+        start = ++nextPos;
     }
 
     return pathList;
@@ -36,7 +42,7 @@ class IDVFSFile {
 protected:
     size_t fileSize = 0;
 public:
-    virtual ~IDVFSFile() = 0;
+    virtual ~IDVFSFile()=default;
 
     [[nodiscard]] size_t getFileSize() const {
         return fileSize;
@@ -97,7 +103,7 @@ struct DVFSLooseFile : IDVFSFile {
     const std::filesystem::path path;
     explicit DVFSLooseFile(std::filesystem::path filePath) : path(std::move(filePath)) {
         if (!is_directory(path) && std::filesystem::exists(path)) {
-            fileSize = (size_t) std::filesystem::file_size(filePath);
+            fileSize = (size_t) std::filesystem::file_size(path);
         }
     }
 
