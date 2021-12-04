@@ -258,7 +258,7 @@ public:
         }
 
         for (const auto& item : inserter.getAllFiles()) {
-            insertFile(item.first, item.second.get(), true);
+            insertFile(item.first, item.second, true);
         }
     }
 

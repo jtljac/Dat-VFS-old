@@ -125,7 +125,7 @@ struct DVFSLooseFile : IDVFSFile {
  * An interface containing methods for adding files to the DVFS
  */
 struct IDVFSInserter {
-    using pair = std::pair<std::string, std::unique_ptr<IDVFSFile>>;
+    using pair = std::pair<std::string, IDVFSFile*>;
 
     const std::vector<std::string> mountPoint;
 
@@ -156,7 +156,7 @@ protected:
 
     virtual void addFile(std::vector<pair>& pairList, const std::filesystem::path &path) const {
         std::string dest = relative(path, looseFilesPath).string();
-        pairList.emplace_back(pair(dest, std::unique_ptr<IDVFSFile>(new DVFSLooseFile(path))));
+        pairList.emplace_back(pair(dest, new DVFSLooseFile(path)));
     }
 
     void addFiles(std::vector<pair>& pairList, const std::filesystem::path& directory) const {
